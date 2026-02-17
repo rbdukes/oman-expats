@@ -1,0 +1,216 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// User Management
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  firstName     String
+  lastName      String
+  displayName   String?
+  nationality   String?
+  currentLocation String?
+  profession    String?
+  company       String?
+  yearsInOman   Int?
+  phone         String?
+  phonePublic   Boolean   @default(false)
+  avatar        String?
+  bio           String?
+  role          String    @default("member") // member, moderator, admin
+  status        String    @default("active") // active, suspended, banned, pending
+  emailVerified Boolean   @default(false)
+  verificationCode String?
+  resetToken    String?
+  resetTokenExpiry DateTime?
+  lastLoginAt   DateTime?
+  lastLoginIp   String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  threads       Thread[]
+  posts         Post[]
+  classifieds   Classified[]
+  reports       Report[]
+  notifications Notification[]
+  sessions      Session[]
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token        String   @unique
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+}
+
+// Forum Structure
+model Category {
+  id          String     @id @default(cuid())
+  name        String
+  slug        String     @unique
+  description String?
+  icon        String?
+  color       String?
+  parentId    String?
+  parent      Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children    Category[] @relation("CategoryHierarchy")
+  order       Int        @default(0)
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  threads     Thread[]
+}
+
+model Thread {
+  id          String     @id @default(cuid())
+  title       String
+  slug        String     @unique
+  content     String
+  authorId    String
+  author      User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  categoryId  String
+  category    Category   @relation(fields: [categoryId], references: [id])
+  views       Int        @default(0)
+  isPinned    Boolean    @default(false)
+  isLocked    Boolean    @default(false)
+  isFeatured  Boolean    @default(false)
+  status      String     @default("published") // draft, published, hidden, deleted
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  posts       Post[]
+  reports     Report[]
+}
+
+model Post {
+  id          String   @id @default(cuid())
+  content     String
+  authorId    String
+  author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  threadId    String
+  thread      Thread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  parentId    String?
+  parent      Post?    @relation("PostReplies", fields: [parentId], references: [id])
+  replies     Post[]   @relation("PostReplies")
+  likes       Int      @default(0)
+  status      String   @default("published") // published, hidden, deleted
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  reports     Report[]
+}
+
+// Classifieds
+model Classified {
+  id            String   @id @default(cuid())
+  title         String
+  slug          String   @unique
+  description   String
+  price         Float?
+  currency      String   @default("OMR")
+  category      String   // jobs-offered, jobs-wanted, buy-sell, services, announcements
+  subcategory   String?
+  location      String?
+  contactName   String?
+  contactPhone  String?
+  contactEmail  String?
+  images        String?  // JSON array of image URLs
+  authorId      String
+  author        User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  isFeatured    Boolean  @default(false)
+  isUrgent      Boolean  @default(false)
+  status        String   @default("active") // active, sold, expired, deleted
+  expiresAt     DateTime?
+  views         Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  reports       Report[]
+}
+
+// Knowledge Base
+model Article {
+  id          String   @id @default(cuid())
+  title       String
+  slug        String   @unique
+  content     String
+  excerpt     String?
+  category    String   // visa, employment, housing, medical, etc.
+  author      String?
+  tags        String?  // JSON array
+  isPublished Boolean  @default(true)
+  isFeatured  Boolean  @default(false)
+  views       Int      @default(0)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Moderation
+model Report {
+  id          String   @id @default(cuid())
+  reporterId  String
+  reporter    User     @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  targetType  String   // thread, post, classified, user
+  targetId    String
+  threadId    String?
+  thread      Thread?  @relation(fields: [threadId], references: [id])
+  postId      String?
+  post        Post?    @relation(fields: [postId], references: [id])
+  classifiedId String?
+  classified  Classified? @relation(fields: [classifiedId], references: [id])
+  reason      String
+  description String?
+  status      String   @default("pending") // pending, reviewed, resolved, dismissed
+  reviewedBy  String?
+  reviewedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Notifications
+model Notification {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        String   // reply, mention, like, system, report
+  title       String
+  message     String
+  link        String?
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
+
+// Site Settings
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+// Announcement Banner
+model Announcement {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  type      String   @default("info") // info, warning, success
+  isActive  Boolean  @default(true)
+  startsAt  DateTime?
+  endsAt    DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
